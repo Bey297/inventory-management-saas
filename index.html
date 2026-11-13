@@ -1,0 +1,464 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StockPro - Inventory Management</title>
+<style>
+:root {
+  --primary:#2563eb;
+  --bg:#f1f5f9;
+  --white:#ffffff;
+  --text:#172033;
+  --muted:#64748b;
+  --border:#e2e8f0;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:Arial,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+}
+header{
+  background:#fff;
+  padding:18px;
+  border-bottom:1px solid var(--border);
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.brand{font-size:21px;font-weight:bold;color:var(--primary)}
+main{max-width:1100px;margin:auto;padding:20px}
+h2{margin:10px 0 20px}
+.stats{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:12px;
+}
+.card{
+  background:white;
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:17px;
+}
+.stat-label{font-size:13px;color:var(--muted)}
+.stat-value{font-size:25px;font-weight:bold;margin-top:10px}
+.toolbar{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin:20px 0;
+}
+button{
+  border:0;
+  padding:11px 15px;
+  border-radius:8px;
+  background:var(--primary);
+  color:white;
+  font-weight:bold;
+  cursor:pointer;
+}
+button.secondary{background:#e2e8f0;color:#172033}
+button.danger{background:#dc2626}
+input,select{
+  padding:11px;
+  border:1px solid var(--border);
+  border-radius:8px;
+  width:100%;
+  background:white;
+  color:var(--text);
+}
+.search{flex:1;min-width:180px}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:650px}
+th,td{
+  text-align:left;
+  padding:13px;
+  border-bottom:1px solid var(--border);
+  font-size:14px;
+}
+th{color:var(--muted);background:#f8fafc}
+.status{
+  padding:5px 9px;
+  border-radius:20px;
+  font-size:12px;
+  background:#dcfce7;
+  color:#166534;
+}
+.low{background:#fee2e2;color:#991b1b}
+.actions{display:flex;gap:6px}
+.actions button{padding:7px 9px;font-size:12px}
+.modal{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:#0008;
+  align-items:center;
+  justify-content:center;
+  padding:15px;
+  z-index:10;
+}
+.modal-content{
+  background:white;
+  padding:22px;
+  border-radius:14px;
+  width:100%;
+  max-width:420px;
+  max-height:90vh;
+  overflow:auto;
+}
+.modal-content h3{margin-top:0}
+.field{margin-bottom:13px}
+.field label{
+  display:block;
+  margin-bottom:6px;
+  font-size:13px;
+  font-weight:bold;
+}
+.form-buttons{display:flex;gap:8px;margin-top:18px}
+.form-buttons button{flex:1}
+.empty{text-align:center;color:var(--muted);padding:30px}
+@media(max-width:700px){
+  .stats{grid-template-columns:repeat(2,1fr)}
+  main{padding:13px}
+  .stat-value{font-size:21px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">📦 StockPro</div>
+  <small>Inventory Management</small>
+</header>
+
+<main>
+  <h2>Dashboard</h2>
+
+  <section class="stats">
+    <div class="card">
+      <div class="stat-label">Total Produk</div>
+      <div class="stat-value" id="totalProducts">0</div>
+    </div>
+    <div class="card">
+      <div class="stat-label">Total Stok</div>
+      <div class="stat-value" id="totalStock">0</div>
+    </div>
+    <div class="card">
+      <div class="stat-label">Stok Menipis</div>
+      <div class="stat-value" id="lowStock">0</div>
+    </div>
+    <div class="card">
+      <div class="stat-label">Nilai Persediaan</div>
+      <div class="stat-value" id="stockValue">Rp0</div>
+    </div>
+  </section>
+
+  <div class="toolbar">
+    <input class="search" id="search"
+      placeholder="Cari nama atau kode barang..."
+      oninput="render()">
+    <button onclick="openProduct()">+ Tambah Produk</button>
+    <button class="secondary" onclick="openHistory()">Riwayat</button>
+  </div>
+
+  <div class="card">
+    <h3>Daftar Produk</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Kode</th>
+            <th>Nama Produk</th>
+            <th>Harga</th>
+            <th>Stok</th>
+            <th>Status</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="productList"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<!-- Modal Produk -->
+<div class="modal" id="productModal">
+  <div class="modal-content">
+    <h3 id="productTitle">Tambah Produk</h3>
+    <form id="productForm">
+      <input type="hidden" id="editId">
+
+      <div class="field">
+        <label>Kode Produk</label>
+        <input id="code" required placeholder="BRG001">
+      </div>
+
+      <div class="field">
+        <label>Nama Produk</label>
+        <input id="name" required placeholder="Nama barang">
+      </div>
+
+      <div class="field">
+        <label>Harga Satuan (Rp)</label>
+        <input id="price" type="number" min="0" required>
+      </div>
+
+      <div class="field">
+        <label>Stok Awal</label>
+        <input id="stock" type="number" min="0" required>
+      </div>
+
+      <div class="field">
+        <label>Batas Minimum Stok</label>
+        <input id="minimum" type="number" min="0" value="5">
+      </div>
+
+      <div class="form-buttons">
+        <button type="submit">Simpan</button>
+        <button type="button" class="secondary"
+          onclick="closeModal('productModal')">Batal</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Transaksi -->
+<div class="modal" id="transactionModal">
+  <div class="modal-content">
+    <h3 id="transactionTitle">Stok Masuk</h3>
+    <form id="transactionForm">
+      <input type="hidden" id="transactionId">
+      <div class="field">
+        <label>Jumlah Barang</label>
+        <input id="quantity" type="number" min="1" required>
+      </div>
+      <div class="field">
+        <label>Catatan</label>
+        <input id="note" placeholder="Keterangan transaksi">
+      </div>
+      <div class="form-buttons">
+        <button type="submit">Proses</button>
+        <button type="button" class="secondary"
+          onclick="closeModal('transactionModal')">Batal</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Riwayat -->
+<div class="modal" id="historyModal">
+  <div class="modal-content">
+    <h3>Riwayat Transaksi</h3>
+    <div id="historyList"></div>
+    <button class="secondary" style="width:100%;margin-top:15px"
+      onclick="closeModal('historyModal')">Tutup</button>
+  </div>
+</div>
+
+<script>
+const KEY = "stockpro_products_v1";
+const HISTORY = "stockpro_history_v1";
+
+let products = JSON.parse(localStorage.getItem(KEY) || "[]");
+let history = JSON.parse(localStorage.getItem(HISTORY) || "[]");
+
+function save(){
+  localStorage.setItem(KEY,JSON.stringify(products));
+  localStorage.setItem(HISTORY,JSON.stringify(history));
+}
+
+function rupiah(value){
+  return new Intl.NumberFormat("id-ID",{
+    style:"currency",currency:"IDR",
+    maximumFractionDigits:0
+  }).format(value);
+}
+
+function render(){
+  const query=document.getElementById("search").value.toLowerCase();
+
+  const filtered=products.filter(p=>
+    p.name.toLowerCase().includes(query) ||
+    p.code.toLowerCase().includes(query)
+  );
+
+  document.getElementById("totalProducts").textContent=products.length;
+
+  document.getElementById("totalStock").textContent=
+    products.reduce((a,p)=>a+p.stock,0);
+
+  document.getElementById("lowStock").textContent=
+    products.filter(p=>p.stock<=p.minimum).length;
+
+  document.getElementById("stockValue").textContent=
+    rupiah(products.reduce((a,p)=>a+p.stock*p.price,0));
+
+  const list=document.getElementById("productList");
+
+  if(!filtered.length){
+    list.innerHTML='<tr><td colspan="6" class="empty">Belum ada produk</td></tr>';
+    return;
+  }
+
+  list.innerHTML=filtered.map(p=>`
+    <tr>
+      <td>${escapeHTML(p.code)}</td>
+      <td>${escapeHTML(p.name)}</td>
+      <td>${rupiah(p.price)}</td>
+      <td>${p.stock}</td>
+      <td>
+        <span class="status ${p.stock<=p.minimum?'low':''}">
+          ${p.stock<=p.minimum?'Menipis':'Tersedia'}
+        </span>
+      </td>
+      <td>
+        <div class="actions">
+          <button onclick="editProduct('${p.id}')">Edit</button>
+          <button onclick="transaction('${p.id}','in')">+</button>
+          <button class="secondary" onclick="transaction('${p.id}','out')">−</button>
+          <button class="danger" onclick="deleteProduct('${p.id}')">X</button>
+        </div>
+      </td>
+    </tr>
+  `).join("");
+}
+
+function escapeHTML(value){
+  return String(value).replace(/[&<>"']/g,c=>({
+    "&":"&amp;","<":"&lt;",">":"&gt;",
+    '"':"&quot;","'":"&#39;"
+  })[c]);
+}
+
+function openProduct(){
+  document.getElementById("productForm").reset();
+  document.getElementById("editId").value="";
+  document.getElementById("productTitle").textContent="Tambah Produk";
+  document.getElementById("productModal").style.display="flex";
+}
+
+function closeModal(id){
+  document.getElementById(id).style.display="none";
+}
+
+function editProduct(id){
+  const p=products.find(x=>x.id===id);
+  if(!p)return;
+
+  document.getElementById("editId").value=p.id;
+  document.getElementById("code").value=p.code;
+  document.getElementById("name").value=p.name;
+  document.getElementById("price").value=p.price;
+  document.getElementById("stock").value=p.stock;
+  document.getElementById("minimum").value=p.minimum;
+  document.getElementById("productTitle").textContent="Edit Produk";
+  document.getElementById("productModal").style.display="flex";
+}
+
+document.getElementById("productForm").onsubmit=e=>{
+  e.preventDefault();
+
+  const id=document.getElementById("editId").value;
+  const code=document.getElementById("code").value.trim();
+  const name=document.getElementById("name").value.trim();
+  const price=Number(document.getElementById("price").value);
+  const stock=Number(document.getElementById("stock").value);
+  const minimum=Number(document.getElementById("minimum").value);
+
+  if(products.some(p=>p.code.toLowerCase()===code.toLowerCase()&&p.id!==id)){
+    alert("Kode produk sudah digunakan");
+    return;
+  }
+
+  if(!code||!name||price<0||stock<0||minimum<0||
+    !Number.isSafeInteger(price)||!Number.isSafeInteger(stock)||
+    !Number.isSafeInteger(minimum)){
+    alert("Periksa kembali data produk");
+    return;
+  }
+
+  if(id){
+    const p=products.find(x=>x.id===id);
+    if(!p)return;
+    p.code=code;p.name=name;p.price=price;
+    p.stock=stock;p.minimum=minimum;
+  }else{
+    products.push({
+      id:crypto.randomUUID(),code,name,price,stock,minimum
+    });
+  }
+
+  save();render();closeModal("productModal");
+};
+
+function deleteProduct(id){
+  if(!confirm("Hapus produk ini?"))return;
+  products=products.filter(p=>p.id!==id);
+  save();render();
+}
+
+function transaction(id,type){
+  const p=products.find(x=>x.id===id);
+  if(!p)return;
+
+  document.getElementById("transactionId").value=id;
+  document.getElementById("quantity").value="";
+  document.getElementById("note").value="";
+  document.getElementById("quantity").max=type==="out"?p.stock:"";
+  document.getElementById("transactionTitle").textContent=
+    type==="in"?"Stok Masuk":"Stok Keluar";
+  document.getElementById("transactionForm").dataset.type=type;
+  document.getElementById("transactionModal").style.display="flex";
+}
+
+document.getElementById("transactionForm").onsubmit=e=>{
+  e.preventDefault();
+
+  const id=document.getElementById("transactionId").value;
+  const type=e.target.dataset.type;
+  const qty=Number(document.getElementById("quantity").value);
+  const p=products.find(x=>x.id===id);
+
+  if(!p||!Number.isSafeInteger(qty)||qty<=0){
+    alert("Jumlah tidak valid");return;
+  }
+
+  if(type==="out"&&qty>p.stock){
+    alert("Stok tidak mencukupi");return;
+  }
+
+  p.stock+=type==="in"?qty:-qty;
+
+  history.unshift({
+    id:crypto.randomUUID(),
+    product:p.name,
+    type,
+    qty,
+    note:document.getElementById("note").value,
+    date:new Date().toLocaleString("id-ID")
+  });
+
+  save();render();closeModal("transactionModal");
+};
+
+function openHistory(){
+  const box=document.getElementById("historyList");
+
+  box.innerHTML=history.length?history.map(h=>`
+    <div style="padding:12px 0;border-bottom:1px solid #ddd">
+      <b>${escapeHTML(h.product)}</b>
+      <div>${h.type==="in"?"Stok masuk":"Stok keluar"}: ${h.qty}</div>
+      <small>${escapeHTML(h.note||"-")} · ${escapeHTML(h.date)}</small>
+    </div>
+  `).join(""):'<p>Belum ada transaksi.</p>';
+
+  document.getElementById("historyModal").style.display="flex";
+}
+
+render();
+</script>
+</body>
+</html>
